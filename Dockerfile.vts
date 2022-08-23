@@ -1,0 +1,12 @@
+
+FROM ubuntu:22.04
+
+WORKDIR /opt/veraison
+
+COPY vts /opt/veraison/vts/vts
+COPY scheme-psa-iot /opt/veraison/plugins/bin/
+COPY scheme-aws-nitro /opt/veraison/plugins/bin/
+
+EXPOSE 50051
+WORKDIR /opt/veraison/vts
+CMD ["./vts"]

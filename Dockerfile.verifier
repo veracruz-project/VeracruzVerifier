@@ -1,0 +1,9 @@
+FROM ubuntu:22.04
+
+WORKDIR /opt/veraison
+
+COPY ./VeracruzVerifier /opt/veraison/verifier
+
+EXPOSE 8080
+WORKDIR /opt/veraison/
+CMD ["./verifier", "-l", "veraison:8080"]

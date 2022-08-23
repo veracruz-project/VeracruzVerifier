@@ -1,0 +1,20 @@
+version: "2.3.3"
+services:
+  vts:
+    build:
+      context: .
+      dockerfile: "Dockerfile.vts"
+    ports:
+      - 50051:50051
+  verifier:
+    build:
+      context: .
+      dockerfile: "Dockerfile.verifier"
+    ports:
+      - 8080:8080
+  provisioning:
+    build:
+      context: .
+      dockerfile: "Dockerfile.provisioning"
+    ports:
+      - 8888:8888

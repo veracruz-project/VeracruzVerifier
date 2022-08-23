@@ -1,0 +1,12 @@
+FROM ubuntu:22.04
+
+WORKDIR /opt/veraison
+
+
+COPY ./provisioning /opt/veraison/provisioning/provisioning
+COPY ./corim-psa-decoder /opt/veraison/provisioning/plugins/bin/
+COPY ./corim-nitro-decoder /opt/veraison/provisioning/plugins/bin/
+
+EXPOSE 8888
+WORKDIR /opt/veraison/provisioning/
+CMD ["./provisioning"]
