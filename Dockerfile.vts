@@ -4,7 +4,7 @@ FROM ubuntu:22.04
 WORKDIR /opt/veraison
 
 COPY vts /opt/veraison/vts/vts
-COPY vts_config.yaml /opt/veraison/vts/vts/config.yaml
+COPY vts_config.yaml /opt/veraison/vts/config.yaml
 COPY scheme-psa-iot /opt/veraison/plugins/bin/
 COPY scheme-aws-nitro /opt/veraison/plugins/bin/
 

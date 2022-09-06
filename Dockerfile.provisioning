@@ -6,6 +6,7 @@ WORKDIR /opt/veraison
 COPY ./provisioning /opt/veraison/provisioning/provisioning
 COPY ./corim-psa-decoder /opt/veraison/provisioning/plugins/bin/
 COPY ./corim-nitro-decoder /opt/veraison/provisioning/plugins/bin/
+COPY ./provisioning_config.yaml /opt/veraison/provisioning/config.yaml
 
 EXPOSE 8888
 WORKDIR /opt/veraison/provisioning/

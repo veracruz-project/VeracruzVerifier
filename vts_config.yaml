@@ -6,6 +6,10 @@ ta-store:
   backend: memory
 en-store:
   backend: memory
+po-store:
+  backend: memory
+po-agent:
+  backend: memory
 vts-grpc:
   server:
     addr: vts:50051
