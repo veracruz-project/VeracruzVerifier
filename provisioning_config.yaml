@@ -1,6 +1,6 @@
 provisioning:
   plugin-dir: ./plugins/bin/
-  listen-addr: provisioning:8888
+  list-addr: provisioning:8888
 vts-grpc:
   vts-server:
-    addr: dns:vts:50051
+    addr: vts:50051
