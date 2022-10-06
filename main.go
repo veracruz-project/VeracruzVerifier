@@ -114,6 +114,26 @@ func extractIdTokenCsr(c *gin.Context) (*uuid.UUID, []byte, []byte, error) {
 
 }
 
+func parseEvidenceMapPsa(evidenceMap map[string]interface{}) (*[]byte, *[]byte, *[]byte, error) {
+	nonce, err := base64.StdEncoding.DecodeString(evidenceMap["psa-nonce"].(string))
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("parseEvidenceMapPsa: appraisalCtx.Result.ProcessedEvidence[\"nonce\"]:%v could not be decoded as base64:%v", evidenceMap["nonce"], err)
+	}
+
+	psa_sw_components := evidenceMap["psa-software-components"].([]interface{})
+	psa_sw_components_map := psa_sw_components[0].(map[string]interface{})
+	runtime_manager_hash, err := base64.StdEncoding.DecodeString(psa_sw_components_map["measurement-value"].(string))
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("parseEvidenceMapPsa: appraisalCtx.Result.ProcessedEvidence[\"psa-software-componetns\"][\"measurement-value\"]:%v could not be decoded as base64:%v", psa_sw_components_map["measurement-value"], err)
+	}
+
+	csr_hash, err := base64.StdEncoding.DecodeString(psa_sw_components_map["signer-id"].(string))
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("PsaRouter: appraisalCtx.Result.ProcessedEvidence[\"user_data\"]:%v could not be decoded as base64:%v", psa_sw_components_map["signer-id"], err)
+	}
+	return &nonce, &runtime_manager_hash, &csr_hash, nil
+}
+
 func (o *ProxyHandler) PsaRouter(c *gin.Context) { // What data do we need? device id, attestation token, public key.
 	id, token_data, csr_data, err := extractIdTokenCsr(c)
 	if err != nil {
@@ -148,14 +168,14 @@ func (o *ProxyHandler) PsaRouter(c *gin.Context) { // What data do we need? devi
 	}
 	evidenceMap := appraisalCtx.Result.ProcessedEvidence.AsMap()
 
-	fmt.Printf("evidenceMap:%v\n", evidenceMap)
-	nonce, err := base64.StdEncoding.DecodeString(evidenceMap["psa-nonce"].(string))
+	nonce, runtime_manager_hash, received_csr_hash, err := parseEvidenceMapPsa(evidenceMap)
 	if err != nil {
 		reportProblem(c,
 			http.StatusInternalServerError,
-			fmt.Sprintf("PsaRouter: appraisalCtx.Result.ProcessedEvidence[\"nonce\"]:%v could not be decoded as base64:%v", evidenceMap["nonce"], err))
+			fmt.Sprintf("PsaRouter: Call to parseEvidenceMapPsa failed:%v", err))
 		return
 	}
+
 	session, err := o.sessionManager.GetSession(id)
 	if err != nil {
 		reportProblem(c,
@@ -163,29 +183,10 @@ func (o *ProxyHandler) PsaRouter(c *gin.Context) { // What data do we need? devi
 			fmt.Sprintf("PsaRouter: Unable to find session for id:%v, err:%v", id, err))
 		return
 	}
-	if !bytes.Equal(session.Nonce, nonce) {
+	if !bytes.Equal(session.Nonce, *nonce) {
 		reportProblem(c,
 			http.StatusInternalServerError,
 			fmt.Sprintf("PsaRouter: Received nonce:%v did not match stored challenge:%v", nonce, session.Nonce))
-		return
-	}
-
-	psa_sw_components := evidenceMap["psa-software-components"].([]interface{})
-
-	psa_sw_components_map := psa_sw_components[0].(map[string]interface{})
-	runtime_manager_hash, err := base64.StdEncoding.DecodeString(psa_sw_components_map["measurement-value"].(string))
-	if err != nil {
-		reportProblem(c,
-			http.StatusInternalServerError,
-			fmt.Sprintf("PsaRouter: appraisalCtx.Result.ProcessedEvidence[\"psa-software-componetns\"][\"measurement-value\"]:%v could not be decoded as base64:%v", psa_sw_components_map["measurement-value"], err))
-		return
-	}
-	fmt.Printf("converted to runtime_manager_hash:%v\n", runtime_manager_hash)
-	received_csr_hash, err := base64.StdEncoding.DecodeString(psa_sw_components_map["signer-id"].(string))
-	if err != nil {
-		reportProblem(c,
-			http.StatusInternalServerError,
-			fmt.Sprintf("PsaRouter: appraisalCtx.Result.ProcessedEvidence[\"user_data\"]:%v could not be decoded as base64:%v", psa_sw_components_map["signer-id"], err))
 		return
 	}
 
@@ -193,7 +194,7 @@ func (o *ProxyHandler) PsaRouter(c *gin.Context) { // What data do we need? devi
 	h.Write(csr_data)
 	calculated_csr_hash := h.Sum(nil)
 
-	if !bytes.Equal(received_csr_hash, calculated_csr_hash) {
+	if !bytes.Equal(*received_csr_hash, calculated_csr_hash) {
 		reportProblem(c,
 			http.StatusInternalServerError,
 			fmt.Sprintf("PsaRouter: received CSR hash (%v) does not match calculated CSR hash(%v)", received_csr_hash, calculated_csr_hash))
@@ -215,7 +216,7 @@ func (o *ProxyHandler) PsaRouter(c *gin.Context) { // What data do we need? devi
 		return
 	}
 
-	clientCert, err := convertCSRIntoCert(csr, runtime_manager_hash)
+	clientCert, err := convertCSRIntoCert(csr, *runtime_manager_hash)
 	if err != nil {
 		reportProblem(c,
 			http.StatusInternalServerError,
@@ -228,6 +229,7 @@ func (o *ProxyHandler) PsaRouter(c *gin.Context) { // What data do we need? devi
 	c.Data(http.StatusOK, ChallengeResponseSessionMediaType, certData)
 	return
 }
+
 func (o *ProxyHandler) NitroRouter(c *gin.Context) { // What data do we need? device id, attestation document
 	id, doc, csr_data, err := extractIdTokenCsr(c)
 	if err != nil {
