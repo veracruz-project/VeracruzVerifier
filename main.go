@@ -134,6 +134,26 @@ func parseEvidenceMapPsa(evidenceMap map[string]interface{}) (*[]byte, *[]byte, 
 	return &nonce, &runtime_manager_hash, &csr_hash, nil
 }
 
+func parseEvidenceMapNitro(evidenceMap map[string]interface{}) (*[]byte, *[]byte, *[]byte, error) {
+	nonce, err := base64.StdEncoding.DecodeString(evidenceMap["nonce"].(string))
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("parseEvidenceMapNitro: appraisalCtx.Result.ProcessedEvidence[\"nonce\"]:%v could not be decoded as base64:%v", evidenceMap["nonce"], err)
+	}
+
+	pcr0, err := base64.StdEncoding.DecodeString(evidenceMap["PCR0"].(string))
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("parseEvidenceMapNitro: appraisalCtx.Result.ProcessedEvidence[\"PCR0\"]:%v could not be decoded as base64:%v", evidenceMap["PCR0"], err)
+	}
+	runtime_manager_hash := pcr0[0:32]
+
+	csr_hash, err := base64.StdEncoding.DecodeString(evidenceMap["user_data"].(string))
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("NitroRouter: appraisalCtx.Result.ProcessedEvidence[\"user_data\"]:%v could not be decoded as base64:%v", evidenceMap["user_data"], err)
+	}
+
+	return &nonce, &runtime_manager_hash, &csr_hash, nil
+}
+
 func (o *ProxyHandler) PsaRouter(c *gin.Context) { // What data do we need? device id, attestation token, public key.
 	id, token_data, csr_data, err := extractIdTokenCsr(c)
 	if err != nil {
@@ -264,13 +284,14 @@ func (o *ProxyHandler) NitroRouter(c *gin.Context) { // What data do we need? de
 	}
 	evidenceMap := appraisalCtx.Result.ProcessedEvidence.AsMap()
 
-	nonce, err := base64.StdEncoding.DecodeString(evidenceMap["nonce"].(string))
+	nonce, runtime_manager_hash, received_csr_hash, err := parseEvidenceMapNitro(evidenceMap)
 	if err != nil {
 		reportProblem(c,
 			http.StatusInternalServerError,
-			fmt.Sprintf("NitroRouter: appraisalCtx.Result.ProcessedEvidence[\"nonce\"]:%v could not be decoded as base64:%v", evidenceMap["nonce"], err))
+			fmt.Sprintf("NitroRouter: Call to parseEvidenceMapNitro failed:%v", err))
 		return
 	}
+
 	session, err := o.sessionManager.GetSession(id)
 	if err != nil {
 		reportProblem(c,
@@ -278,25 +299,10 @@ func (o *ProxyHandler) NitroRouter(c *gin.Context) { // What data do we need? de
 			fmt.Sprintf("NitroRouter: Unable to find session for id:%v, err:%v", id, err))
 		return
 	}
-	if !bytes.Equal(session.Nonce, nonce) {
+	if !bytes.Equal(session.Nonce, *nonce) {
 		reportProblem(c,
 			http.StatusInternalServerError,
 			fmt.Sprintf("NitroRouter: Received nonce:%v did not match stored challenge:%v", nonce, session.Nonce))
-		return
-	}
-
-	pcr0, err := base64.StdEncoding.DecodeString(evidenceMap["PCR0"].(string))
-	if err != nil {
-		reportProblem(c,
-			http.StatusInternalServerError,
-			fmt.Sprintf("NitroRouter: appraisalCtx.Result.ProcessedEvidence[\"PCR0\"]:%v could not be decoded as base64:%v", evidenceMap["PCR0"], err))
-		return
-	}
-	received_csr_hash, err := base64.StdEncoding.DecodeString(evidenceMap["user_data"].(string))
-	if err != nil {
-		reportProblem(c,
-			http.StatusInternalServerError,
-			fmt.Sprintf("NitroRouter: appraisalCtx.Result.ProcessedEvidence[\"user_data\"]:%v could not be decoded as base64:%v", evidenceMap["user_data"], err))
 		return
 	}
 
@@ -304,7 +310,7 @@ func (o *ProxyHandler) NitroRouter(c *gin.Context) { // What data do we need? de
 	h.Write(csr_data)
 	calculated_csr_hash := h.Sum(nil)
 
-	if !bytes.Equal(received_csr_hash, calculated_csr_hash) {
+	if !bytes.Equal(*received_csr_hash, calculated_csr_hash) {
 		reportProblem(c,
 			http.StatusInternalServerError,
 			fmt.Sprintf("nitroRouter: received CSR hash (%v) does not match calculated CSR hash(%v)", received_csr_hash, calculated_csr_hash))
@@ -325,7 +331,7 @@ func (o *ProxyHandler) NitroRouter(c *gin.Context) { // What data do we need? de
 		return
 	}
 
-	clientCert, err := convertCSRIntoCert(csr, pcr0[0:32])
+	clientCert, err := convertCSRIntoCert(csr, *runtime_manager_hash)
 	if err != nil {
 		reportProblem(c,
 			http.StatusInternalServerError,
