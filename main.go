@@ -203,7 +203,6 @@ func (o *ProxyHandler) PsaRouter(c *gin.Context) { // What data do we need? devi
 	psa_sw_components := evidenceMap["psa-software-components"].([]interface{})
 
 	psa_sw_components_map := psa_sw_components[0].(map[string]interface{})
-	fmt.Printf("measurement-value:%v\n", psa_sw_components_map["measurement-value"].(string))
 	runtime_manager_hash, err := base64.StdEncoding.DecodeString(psa_sw_components_map["measurement-value"].(string))
 	if err != nil {
 		reportProblem(c,
