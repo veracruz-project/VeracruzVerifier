@@ -83,36 +83,6 @@ func (o *ProxyHandler) Start(c *gin.Context) {
 	return
 }
 
-func extractIdDocCsr(c *gin.Context) (*uuid.UUID, []byte, []byte, error) {
-	uriPathSegment := c.Param("id")
-	id, err := uuid.Parse(uriPathSegment)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("extractIdDocCsr uuid.Parse failed:%v", err)
-	}
-	form, err := c.MultipartForm()
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("extractIdDocCsr: MultipartForm failed:%v", err)
-	}
-	doc, ok := form.Value["doc"]
-	if !ok {
-		return nil, nil, nil, fmt.Errorf("extractIdDocCsr: \"doc\" entry not found in form")
-	}
-	doc_bytes, err := base64.StdEncoding.DecodeString(doc[0])
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("extractIdDocCsr: Decode of doc failed:%v", err)
-	}
-	csr, ok := form.Value["csr"]
-	if !ok {
-		return nil, nil, nil, fmt.Errorf("extractIdDocCsr: \"csr\" entry not found in form")
-	}
-
-	csr_bytes, err := base64.StdEncoding.DecodeString(csr[0])
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("extractIdDocCsr: Decode of csr failed:%v", err)
-	}
-	return &id, doc_bytes, csr_bytes, nil
-}
-
 func extractIdTokenCsr(c *gin.Context) (*uuid.UUID, []byte, []byte, error) {
 	uriPathSegment := c.Param("id")
 	id, err := uuid.Parse(uriPathSegment)
@@ -259,7 +229,7 @@ func (o *ProxyHandler) PsaRouter(c *gin.Context) { // What data do we need? devi
 	return
 }
 func (o *ProxyHandler) NitroRouter(c *gin.Context) { // What data do we need? device id, attestation document
-	id, doc, csr_data, err := extractIdDocCsr(c)
+	id, doc, csr_data, err := extractIdTokenCsr(c)
 	if err != nil {
 		reportProblem(c,
 			http.StatusBadRequest,
