@@ -37,12 +37,12 @@ func generateRandomBytes(num int) ([]byte, error) {
 func (m *SessionManager) CreateSession() (*uuid.UUID, error) {
 	my_id := uuid.New()
 
-	nonce, err := generateRandomBytes(16)
+	nonce, err := generateRandomBytes(32)
 	if err != nil {
 		return nil, err
 	}
 	session := Session{
-		Id: my_id,
+		Id:    my_id,
 		Nonce: nonce,
 	}
 
@@ -76,12 +76,11 @@ func (m *SessionManager) Close() error {
 }
 
 type Session struct {
-	Nonce []byte `json:"nonce" binding:"required"`
-	Id   uuid.UUID `json:"id" binding: "required"`
+	Nonce []byte    `json:"nonce" binding:"required"`
+	Id    uuid.UUID `json:"id" binding: "required"`
 }
 
 // GetID returns the ID of this session
 func (s Session) GetID() uuid.UUID {
 	return s.Id
 }
-
