@@ -154,19 +154,38 @@ func parseEvidenceMapNitro(evidenceMap map[string]interface{}) (*[]byte, *[]byte
 	return &nonce, &runtime_manager_hash, &csr_hash, nil
 }
 
-func (o *ProxyHandler) PsaRouter(c *gin.Context) { // What data do we need? device id, attestation token, public key.
+type PlatformType uint8
+
+const (
+	PSAPlatform   PlatformType = 0
+	NitroPlatform              = 1
+)
+
+func (o *ProxyHandler) genericRouter(c *gin.Context, platform PlatformType) {
 	id, token_data, csr_data, err := extractIdTokenCsr(c)
 	if err != nil {
 		reportProblem(c,
 			http.StatusBadRequest,
-			fmt.Sprintf("PsaRouter: extractIdEvidence failed:%v", err))
+			fmt.Sprintf("genericRouter: extractIdEvidence failed:%v", err))
+		return
+	}
+
+	var mediaType string
+	if platform == PSAPlatform {
+		mediaType = "application/psa-attestation-token"
+	} else if platform == NitroPlatform {
+		mediaType = "application/aws-nitro-document"
+	} else {
+		reportProblem(c,
+			http.StatusInternalServerError,
+			fmt.Sprintf("genericRouter: unsupported `platform` value(%v) received", platform))
 		return
 	}
 
 	token := &proto.AttestationToken{
 		TenantId:  tenantID,
 		Data:      token_data,
-		MediaType: "application/psa-attestation-token",
+		MediaType: mediaType,
 	}
 
 	appraisalCtx, err := o.vtsClient.GetAttestation(
@@ -176,23 +195,41 @@ func (o *ProxyHandler) PsaRouter(c *gin.Context) { // What data do we need? devi
 	if err != nil {
 		reportProblem(c,
 			http.StatusInternalServerError,
-			fmt.Sprintf("PsaRouter: o.vtsClient.GetAttestation failed:%v", err))
+			fmt.Sprintf("genericRouter: o.vtsClient.GetAttestation failed:%v", err))
 		return
 	}
 
 	if appraisalCtx.Result.TrustVector.HardwareAuthenticity != proto.AR_Status_SUCCESS {
 		reportProblem(c,
 			http.StatusInternalServerError,
-			fmt.Sprintf("PsaRouter: appraisalCtx.Result.TrustVector.HardwareAuthenticity:%v is not \"SUCCESS\"", appraisalCtx.Result.TrustVector.HardwareAuthenticity))
+			fmt.Sprintf("genericRouter: appraisalCtx.Result.TrustVector.HardwareAuthenticity:%v is not \"SUCCESS\"", appraisalCtx.Result.TrustVector.HardwareAuthenticity))
 		return
 	}
 	evidenceMap := appraisalCtx.Result.ProcessedEvidence.AsMap()
 
-	nonce, runtime_manager_hash, received_csr_hash, err := parseEvidenceMapPsa(evidenceMap)
-	if err != nil {
+	var nonce *[]byte
+	var runtime_manager_hash *[]byte
+	var received_csr_hash *[]byte
+	if platform == PSAPlatform {
+		nonce, runtime_manager_hash, received_csr_hash, err = parseEvidenceMapPsa(evidenceMap)
+		if err != nil {
+			reportProblem(c,
+				http.StatusInternalServerError,
+				fmt.Sprintf("genericRouter: Call to parseEvidenceMapPsa failed:%v", err))
+			return
+		}
+	} else if platform == NitroPlatform {
+		nonce, runtime_manager_hash, received_csr_hash, err = parseEvidenceMapNitro(evidenceMap)
+		if err != nil {
+			reportProblem(c,
+				http.StatusInternalServerError,
+				fmt.Sprintf("genericRouter: Call to parseEvidenceMapNitro failed:%v", err))
+			return
+		}
+	} else {
 		reportProblem(c,
 			http.StatusInternalServerError,
-			fmt.Sprintf("PsaRouter: Call to parseEvidenceMapPsa failed:%v", err))
+			fmt.Sprintf("genericRouter: Unsupported platform (%v) received", platform))
 		return
 	}
 
@@ -200,13 +237,13 @@ func (o *ProxyHandler) PsaRouter(c *gin.Context) { // What data do we need? devi
 	if err != nil {
 		reportProblem(c,
 			http.StatusInternalServerError,
-			fmt.Sprintf("PsaRouter: Unable to find session for id:%v, err:%v", id, err))
+			fmt.Sprintf("genericRouter: Unable to find session for id:%v, err:%v", id, err))
 		return
 	}
 	if !bytes.Equal(session.Nonce, *nonce) {
 		reportProblem(c,
 			http.StatusInternalServerError,
-			fmt.Sprintf("PsaRouter: Received nonce:%v did not match stored challenge:%v", nonce, session.Nonce))
+			fmt.Sprintf("genericRouter: Received nonce:%v did not match stored challenge:%v", nonce, session.Nonce))
 		return
 	}
 
@@ -217,14 +254,14 @@ func (o *ProxyHandler) PsaRouter(c *gin.Context) { // What data do we need? devi
 	if !bytes.Equal(*received_csr_hash, calculated_csr_hash) {
 		reportProblem(c,
 			http.StatusInternalServerError,
-			fmt.Sprintf("PsaRouter: received CSR hash (%v) does not match calculated CSR hash(%v)", received_csr_hash, calculated_csr_hash))
+			fmt.Sprintf("genericRouter: received CSR hash (%v) does not match calculated CSR hash(%v)", received_csr_hash, calculated_csr_hash))
 	}
 
 	csr, err := x509.ParseCertificateRequest(csr_data)
 	if err != nil {
 		reportProblem(c,
 			http.StatusInternalServerError,
-			fmt.Sprintf("PsaRouter: failed to convert received PEM:%v into CSR:%v", csr_data, err))
+			fmt.Sprintf("genericRouter: failed to convert received PEM:%v into CSR:%v", csr_data, err))
 		return
 	}
 
@@ -232,7 +269,7 @@ func (o *ProxyHandler) PsaRouter(c *gin.Context) { // What data do we need? devi
 	if err != nil {
 		reportProblem(c,
 			http.StatusInternalServerError,
-			fmt.Sprintf("PsaRouter: CSR signature is invalid:%v", err))
+			fmt.Sprintf("genericRouter: CSR signature is invalid:%v", err))
 		return
 	}
 
@@ -240,7 +277,7 @@ func (o *ProxyHandler) PsaRouter(c *gin.Context) { // What data do we need? devi
 	if err != nil {
 		reportProblem(c,
 			http.StatusInternalServerError,
-			fmt.Sprintf("PsaRouter: convertCSRIntoCert failed:%v", err))
+			fmt.Sprintf("genericRouter: convertCSRIntoCert failed:%v", err))
 		return
 	}
 
@@ -250,98 +287,13 @@ func (o *ProxyHandler) PsaRouter(c *gin.Context) { // What data do we need? devi
 	return
 }
 
-func (o *ProxyHandler) NitroRouter(c *gin.Context) { // What data do we need? device id, attestation document
-	id, doc, csr_data, err := extractIdTokenCsr(c)
-	if err != nil {
-		reportProblem(c,
-			http.StatusBadRequest,
-			fmt.Sprintf("NitroRouter: extractIdEvidence failed:%v", err))
-		return
-	}
+func (o *ProxyHandler) PsaRouter(c *gin.Context) {
+	o.genericRouter(c, PSAPlatform)
+	return
+}
 
-	token := &proto.AttestationToken{
-		TenantId:  tenantID,
-		Data:      doc,
-		MediaType: "application/aws-nitro-document",
-	}
-
-	appraisalCtx, err := o.vtsClient.GetAttestation(
-		context.Background(),
-		token,
-	)
-	if err != nil {
-		reportProblem(c,
-			http.StatusInternalServerError,
-			fmt.Sprintf("NitroRouter: o.vtsClient.GetAttestation failed:%v", err))
-		return
-	}
-
-	if appraisalCtx.Result.TrustVector.HardwareAuthenticity != proto.AR_Status_SUCCESS {
-		reportProblem(c,
-			http.StatusInternalServerError,
-			fmt.Sprintf("NitroRouter: appraisalCtx.Result.TrustVector.HardwareAuthenticity:%v is not \"SUCCESS\"", appraisalCtx.Result.TrustVector.HardwareAuthenticity))
-		return
-	}
-	evidenceMap := appraisalCtx.Result.ProcessedEvidence.AsMap()
-
-	nonce, runtime_manager_hash, received_csr_hash, err := parseEvidenceMapNitro(evidenceMap)
-	if err != nil {
-		reportProblem(c,
-			http.StatusInternalServerError,
-			fmt.Sprintf("NitroRouter: Call to parseEvidenceMapNitro failed:%v", err))
-		return
-	}
-
-	session, err := o.sessionManager.GetSession(id)
-	if err != nil {
-		reportProblem(c,
-			http.StatusInternalServerError,
-			fmt.Sprintf("NitroRouter: Unable to find session for id:%v, err:%v", id, err))
-		return
-	}
-	if !bytes.Equal(session.Nonce, *nonce) {
-		reportProblem(c,
-			http.StatusInternalServerError,
-			fmt.Sprintf("NitroRouter: Received nonce:%v did not match stored challenge:%v", nonce, session.Nonce))
-		return
-	}
-
-	h := sha256.New()
-	h.Write(csr_data)
-	calculated_csr_hash := h.Sum(nil)
-
-	if !bytes.Equal(*received_csr_hash, calculated_csr_hash) {
-		reportProblem(c,
-			http.StatusInternalServerError,
-			fmt.Sprintf("nitroRouter: received CSR hash (%v) does not match calculated CSR hash(%v)", received_csr_hash, calculated_csr_hash))
-	}
-
-	csr, err := x509.ParseCertificateRequest(csr_data)
-	if err != nil {
-		reportProblem(c,
-			http.StatusInternalServerError,
-			fmt.Sprintf("nitroRouter: failed to convert received PEM:%v into CSR:%v", csr_data, err))
-		return
-	}
-	err = csr.CheckSignature()
-	if err != nil {
-		reportProblem(c,
-			http.StatusInternalServerError,
-			fmt.Sprintf("NitroRouter: CSR signature is invalid:%v", err))
-		return
-	}
-
-	clientCert, err := convertCSRIntoCert(csr, *runtime_manager_hash)
-	if err != nil {
-		reportProblem(c,
-			http.StatusInternalServerError,
-			fmt.Sprintf("NitroRouter: convertCSRIntoCert failed:%v", err))
-		return
-	}
-
-	certData := append(clientCert[:], caCert.Raw[:]...)
-
-	c.Data(http.StatusOK, ChallengeResponseSessionMediaType, certData)
+func (o *ProxyHandler) NitroRouter(c *gin.Context) {
+	o.genericRouter(c, NitroPlatform)
 	return
 }
 
