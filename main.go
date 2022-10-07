@@ -400,7 +400,7 @@ func main() {
 	session_manager := session.NewSessionManager()
 
 	vtsClientCfg := config.Store{
-		"vts-server.addr": "vts:50051",
+		"vts-server.addr": "127.0.0.1:50051",
 	}
 	vtsClient := vtsclient.NewGRPC(vtsClientCfg)
 
