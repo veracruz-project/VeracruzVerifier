@@ -394,7 +394,7 @@ func main() {
 
 	var listenAddress string
 
-	flag.StringVar(&listenAddress, "l", "", "Address to listen on")
+	flag.StringVar(&listenAddress, "l", "127.0.0.1:3030", "Address to listen on")
 	flag.Parse()
 
 	session_manager := session.NewSessionManager()
@@ -416,7 +416,7 @@ func main() {
 		POST("PSA/:id", proxyHandler.PsaRouter).
 		POST("Nitro/:id", proxyHandler.NitroRouter)
 
-	err = router.Run()
+	err = router.Run(listenAddress)
 	if err != nil {
 		fmt.Println("Router failed to run")
 	}
