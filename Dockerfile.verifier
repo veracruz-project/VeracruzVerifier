@@ -8,4 +8,4 @@ COPY ./CAKey.pem /opt/veraison/
 
 EXPOSE 8080
 WORKDIR /opt/veraison/
-CMD ["./verifier", "-l", "veraison:8080"]
+CMD ["./verifier", "-l", "verifier:8080"]

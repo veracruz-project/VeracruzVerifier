@@ -23,7 +23,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/moogar0880/problems"
-	"github.com/veraison/services/config"
+	"github.com/setrofim/viper"
 	"github.com/veraison/services/proto"
 	"github.com/veraison/services/vtsclient"
 )
@@ -199,10 +199,10 @@ func (o *ProxyHandler) genericRouter(c *gin.Context, platform PlatformType) {
 		return
 	}
 
-	if appraisalCtx.Result.TrustVector.HardwareAuthenticity != proto.AR_Status_SUCCESS {
+	if proto.ARStatus(appraisalCtx.Result.TrustVector.Hardware) != proto.ARStatus_CONF_AFFIRMING {
 		reportProblem(c,
 			http.StatusInternalServerError,
-			fmt.Sprintf("genericRouter: appraisalCtx.Result.TrustVector.HardwareAuthenticity:%v is not \"SUCCESS\"", appraisalCtx.Result.TrustVector.HardwareAuthenticity))
+			fmt.Sprintf("genericRouter: appraisalCtx.Result.TrustVector.HardwareAuthenticity:%v is not \"SUCCESS\"", appraisalCtx.Result.TrustVector.Hardware))
 		return
 	}
 	evidenceMap := appraisalCtx.Result.ProcessedEvidence.AsMap()
@@ -399,9 +399,8 @@ func main() {
 
 	session_manager := session.NewSessionManager()
 
-	vtsClientCfg := config.Store{
-		"vts-server.addr": "127.0.0.1:50051",
-	}
+	vtsClientCfg := viper.New()
+	vtsClientCfg.SetDefault("vts-server.addr", "127.0.0.1:50051")
 	vtsClient := vtsclient.NewGRPC(vtsClientCfg)
 
 	proxyHandler := NewProxyHandler(session_manager, vtsClient)
@@ -418,6 +417,6 @@ func main() {
 
 	err = router.Run(listenAddress)
 	if err != nil {
-		fmt.Println("Router failed to run")
+		fmt.Printf("Router failed to run:%v\n", err)
 	}
 }
