@@ -1,4 +1,4 @@
-module github.com/dreemkiller/VeracruzVerifier
+module github.com/dreemkiller/proxy_attestation_server
 
 go 1.18
 

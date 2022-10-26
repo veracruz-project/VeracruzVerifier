@@ -3,6 +3,6 @@ corim-psa-decoder
 provisioning
 scheme-aws-nitro
 scheme-psa-iot
-VeracruzVerifier
+proxy_attestation_server
 vts
 *.cbor

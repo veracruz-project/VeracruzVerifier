@@ -2,10 +2,10 @@ FROM ubuntu:22.04
 
 WORKDIR /opt/veraison
 
-COPY ./VeracruzVerifier /opt/veraison/verifier
+COPY ./proxy_attestation_server /opt/veraison/
 COPY ./CACert.pem /opt/veraison/
 COPY ./CAKey.pem /opt/veraison/
 
 EXPOSE 8080
 WORKDIR /opt/veraison/
-CMD ["./verifier", "-l", "verifier:8080"]
+CMD ["./proxy_attestation_server", "-l", "verifier:8080"]

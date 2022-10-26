@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dreemkiller/VeracruzVerifier/session"
+	"github.com/dreemkiller/proxy_attestation_server/session"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/moogar0880/problems"
