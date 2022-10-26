@@ -12,6 +12,6 @@ rm -f ./scheme-psa-iot
 go build -o ./scheme-psa-iot github.com/veraison/services/vts/plugins/scheme-psa-iot
 rm -f ./scheme-aws-nitro
 go build -o ./scheme-aws-nitro github.com/veraison/services/vts/plugins/scheme-aws-nitro
-rm -f VeracruzVerifier
+rm -f proxy_attestation_server
 go build .
 docker-compose up

@@ -1,12 +1,9 @@
-// Copyright 2022 Contributors to the Veraison project.
-// SPDX-License-Identifier: Apache-2.0
 package session
 
 import (
-	"encoding/json"
+	"crypto/rand"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/veraison/services/verification/sessionmanager"
@@ -28,37 +25,42 @@ func (m *SessionManager) Init(cfg sessionmanager.Config) error {
 	return nil
 }
 
-func (m *SessionManager) SetSession(id uuid.UUID, tenant string, sessionData json.RawMessage, ttl time.Duration) error {
-	  
-	  
-	var data SessionInfo
-	json.Unmarshal([]byte(sessionData), &data)
-	fmt.Printf("SetSession with Nonce: %v, Expiry: %v, Accept:%v, State:%v", data.Nonce, data.Expiry, data.Accept, data.State)
-	session := Session{}
-	session.Nonce = data.Nonce
-	expiry := time.Now().Add(time.Second * ttl)
-	session.Init(id, data.Nonce, expiry)
-
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	m.sessions[session.GetID()] = &session
-
-	return nil
-}
-
-func (m *SessionManager) GetSession(id uuid.UUID, tenant string) (json.RawMessage, error) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	session := m.sessions[id]
-	json_data, err := json.Marshal(session)
-	if err != nil {
-		fmt.Println("SessionManager::GetSession failed to Marshal: %e", err)
+func generateRandomBytes(num int) ([]byte, error) {
+	bytes := make([]byte, num)
+	num_gen, err := rand.Read(bytes)
+	if err != nil || num_gen != num {
 		return nil, err
 	}
-	return json_data, nil
+	return bytes, nil
 }
 
-func (m *SessionManager) DelSession(id uuid.UUID, tenant string) error {
+func (m *SessionManager) CreateSession() (*uuid.UUID, error) {
+	my_id := uuid.New()
+
+	nonce, err := generateRandomBytes(32)
+	if err != nil {
+		return nil, err
+	}
+	session := Session{
+		Id:    my_id,
+		Nonce: nonce,
+	}
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	m.sessions[my_id] = &session
+
+	return &my_id, nil
+}
+
+func (m *SessionManager) GetSession(id *uuid.UUID) (*Session, error) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	session := m.sessions[*id]
+	return session, nil
+}
+
+func (m *SessionManager) DelSession(id uuid.UUID) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	if _, ok := m.sessions[id]; !ok {
@@ -74,32 +76,11 @@ func (m *SessionManager) Close() error {
 }
 
 type Session struct {
-	SessionInfo
-	id   uuid.UUID
-	data map[interface{}]interface{}
-}
-
-type SessionInfo struct {
-	Nonce  []byte    `json:"nonce" binding:"required"`
-	Expiry time.Time `json:"expiry" binding:"required"`
-	Accept []string  `json:"accept" binding:"required"`
-	State  string    `json:"state" binding:"required"`
-}
-
-// Init initializes a new session with the specified ID
-func (s *Session) Init(id uuid.UUID, nonce []byte, expiry time.Time) {
-	s.Nonce = nonce
-	s.Expiry = expiry
-	s.Accept = []string{ // TODO: should not be hard-coded
-		"application/psa-attestation-token",
-	}
-	s.State = "waiting"
-	s.id = id
-	s.data = make(map[interface{}]interface{})
+	Nonce []byte    `json:"nonce" binding:"required"`
+	Id    uuid.UUID `json:"id" binding: "required"`
 }
 
 // GetID returns the ID of this session
 func (s Session) GetID() uuid.UUID {
-	return s.id
+	return s.Id
 }
-
