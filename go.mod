@@ -67,6 +67,7 @@ require (
 	github.com/veraison/corim v0.0.0-20220801100627-a48aacbd333c // indirect
 	github.com/veraison/eat v0.0.0-20210331113810-3da8a4dd42ff // indirect
 	github.com/veraison/go-cose v1.0.0-rc.1 // indirect
+	github.com/veraison/psatoken v0.0.2-0.20220729120948-5bec1d03670c // indirect
 	github.com/veraison/swid v0.0.1-beta.6 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
