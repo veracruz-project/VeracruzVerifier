@@ -401,7 +401,8 @@ func main() {
 
 	vtsClientCfg := viper.New()
 	vtsClientCfg.SetDefault("vts-server.addr", "127.0.0.1:50051")
-	vtsClient := vtsclient.NewGRPC(vtsClientCfg)
+	vtsClient := vtsclient.NewGRPC()
+	vtsClient.Init(vtsClientCfg)
 
 	proxyHandler := NewProxyHandler(session_manager, vtsClient)
 
