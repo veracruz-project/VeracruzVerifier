@@ -23,7 +23,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/moogar0880/problems"
-	"github.com/setrofim/viper"
+	"github.com/spf13/viper"
 	"github.com/veraison/services/proto"
 	"github.com/veraison/services/vtsclient"
 )
@@ -401,7 +401,9 @@ func main() {
 
 	vtsClientCfg := viper.New()
 	vtsClientCfg.SetDefault("vts-server.addr", "127.0.0.1:50051")
-	vtsClient := vtsclient.NewGRPC(vtsClientCfg)
+
+	vtsClient := vtsclient.NewGRPC()
+	vtsClient.Init(vtsClientCfg)
 
 	proxyHandler := NewProxyHandler(session_manager, vtsClient)
 
