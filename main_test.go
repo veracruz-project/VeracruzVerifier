@@ -30,6 +30,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -43,21 +44,16 @@ import (
 	"github.com/veracruz-project/proxy_attestation_server/session"
 	"github.com/veraison/corim/comid"
 	"github.com/veraison/corim/corim"
+	"github.com/veraison/eat"
+	"github.com/veraison/go-cose"
+	"github.com/veraison/psatoken"
 	"github.com/veraison/services/vtsclient"
 )
 
-func Test_loadCa(t *testing.T) {
-	err := loadCaCert()
-	if err != nil {
-		t.Fatalf("loadCaCert failed:%v\n", err)
-	}
-	err = loadCaKey()
-	if err != nil {
-		t.Fatalf("loadCaKey failed:%v\n", err)
-	}
-}
-
 func Test_CSR(t *testing.T) {
+	if err := manageCertAndKey(); err != nil {
+		t.Fatalf("manageCertAndKey failed:%v\n", err)
+	}
 	csrPrivateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	var name = pkix.Name{}
 	var csrTemplate = x509.CertificateRequest{
@@ -126,6 +122,10 @@ func Test_Start(t *testing.T) {
 }
 
 func Test_Nitro(t *testing.T) {
+	if err := manageCertAndKey(); err != nil {
+		t.Fatalf("manageCertAndKey failed:%v\n", err)
+	}
+
 	endKey, endCertDer, _, caCertDer, err := generateCertsAndKeys(false, false)
 	if err != nil {
 		t.Fatalf("Failed to generateCertsAndKeys:%v\n", err)
@@ -215,11 +215,9 @@ func Test_Nitro(t *testing.T) {
 }
 
 func Test_PSA(t *testing.T) {
-	// 	endKey, endCertDer, caCertDer, err := generateCertsAndKeys(false, false)
-	// 	if err != nil {
-	// 		t.Fatalf("Failed to generateCertsAndKeys:%v\n", err)
-	// 	}
-
+	if err := manageCertAndKey(); err != nil {
+		t.Fatalf("manageCertAndKey failed:%v\n", err)
+	}
 	// start the vts service
 	vtsCtx, cancel_vts_service := context.WithCancel(context.Background())
 	defer cancel_vts_service()
@@ -229,79 +227,187 @@ func Test_PSA(t *testing.T) {
 	defer cancel_provisioning_service()
 
 	if err := startProvisioningService(provisioningCtx); err != nil {
-		t.Fatalf("Failed to start the provisioning service")
+		t.Fatalf("Failed to start the provisioning service:%v", err)
 	}
 
-	// 	proxyHandler := createTestProxyHandler()
+	proxyHandler := createTestProxyHandler()
 
-	// 	// provision the fake PSA credentials to the services
-	// 	if err := provision_psa_corim(); err != nil {
-	// 		t.Fatalf("Failed to provision nitro credentials:%v\n", err)
-	// 	}
+	signingKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed to generate key:%v", err)
+	}
+	// provision the fake PSA credentials to the services
+	if err := provision_psa_corim(signingKey); err != nil {
+		t.Fatalf("Failed to provision PSA credentials:%v\n", err)
+	}
 
-	// 	router, err := createRouter(proxyHandler)
-	// 	assert.NoError(t, err)
+	router, err := createRouter(proxyHandler)
+	assert.NoError(t, err)
 
-	// 	req := httptest.NewRequest(http.MethodPost, "/proxy/v1/Start", nil)
-	// 	w := httptest.NewRecorder()
-	// 	router.ServeHTTP(w, req)
-	// 	assert.Equal(t, http.StatusCreated, w.Code)
-	// 	header := w.Header()
-	// 	assert.Equal(t, header.Get("Content-Type"), string("application/vnd.veraison.challenge-response-session+json"))
-	// 	// Make sure there is a reeturned Location in the header
-	// 	location := header.Get("Location")
-	// 	// Make sure the location decodes correctly to a UUID
-	// 	session_id, err := uuid.FromString(location)
-	// 	assert.NoError(t, err)
-	// 	// Make sure the nonce received in the Body is the right length?
-	// 	nonceBytes := w.Body.Bytes()
+	req := httptest.NewRequest(http.MethodPost, "/proxy/v1/Start", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusCreated, w.Code)
+	header := w.Header()
+	assert.Equal(t, header.Get("Content-Type"), string("application/vnd.veraison.challenge-response-session+json"))
+	// Make sure there is a reeturned Location in the header
+	location := header.Get("Location")
+	// Make sure the location decodes correctly to a UUID
+	session_id, err := uuid.FromString(location)
+	if err != nil {
+		t.Fatalf("Faileed to convert location into UUID:%v\n", err)
+	}
+	assert.NoError(t, err)
+	// Make sure the nonce received in the Body is the right length?
+	nonceBytes := w.Body.Bytes()
 
-	// 	csr, err := generateCSR()
-	// 	if err != nil {
-	// 		t.Fatalf("Failed to generate CSR:%v\n", err)
-	// 	}
-	// 	h := sha256.New()
-	// 	h.Write(csr)
-	// 	csrHash := h.Sum(nil)
+	csr, err := generateCSR()
+	if err != nil {
+		t.Fatalf("Failed to generate CSR:%v\n", err)
+	}
+	h := sha256.New()
+	h.Write(csr)
+	csrHash := h.Sum(nil)
 
-	// 	document, err := nitro_enclave_attestation_document.GenerateDocument(PCRs, csrHash, nonceBytes, endCertDer, [][]byte{caCertDer}, endKey)
+	psaToken, err := createPSAToken(&nonceBytes, &csrHash, signingKey)
+	if err != nil {
+		t.Fatalf("createPSAToken failed:%v", err)
+	}
 
-	// 	if err != nil {
-	// 		t.Fatalf("Failed to generate PCRs:%v\n", err)
-	// 	}
-
-	// 	body := &bytes.Buffer{}
-	// 	writer := multipart.NewWriter(body)
-	// 	tokenField, err := writer.CreateFormField("token")
-	// 	if err != nil {
-	// 		t.Fatalf("Failed to create token field:%v\n", err)
-	// 	}
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	tokenField, err := writer.CreateFormField("token")
+	if err != nil {
+		t.Fatalf("Failed to create token field:%v\n", err)
+	}
 	// 	encodedDocument := base64.StdEncoding.EncodeToString(document)
-	// 	_, err = io.Copy(tokenField, strings.NewReader(encodedDocument))
-	// 	if err != nil {
-	// 		t.Fatalf("Failed to copy document base64:%v\n", err)
-	// 	}
-	// 	csrField, err := writer.CreateFormField("csr")
-	// 	if err != nil {
-	// 		t.Fatalf("Failed to create CSR field:%v\n", err)
-	// 	}
-	// 	encodedCSR := base64.StdEncoding.EncodeToString(csr)
-	// 	_, err = io.Copy(csrField, strings.NewReader(encodedCSR))
-	// 	if err != nil {
-	// 		t.Fatalf("Failed to copy CSR field:%v\n", err)
-	// 	}
+	encodedToken := base64.StdEncoding.EncodeToString(psaToken)
+	_, err = io.Copy(tokenField, strings.NewReader(encodedToken))
+	if err != nil {
+		t.Fatalf("Failed to copy token base64:%v\n", err)
+	}
+	csrField, err := writer.CreateFormField("csr")
+	if err != nil {
+		t.Fatalf("Failed to create CSR field:%v\n", err)
+	}
+	encodedCSR := base64.StdEncoding.EncodeToString(csr)
+	_, err = io.Copy(csrField, strings.NewReader(encodedCSR))
+	if err != nil {
+		t.Fatalf("Failed to copy CSR field:%v\n", err)
+	}
+	writer.Close()
 
-	// 	writer.Close()
+	psa_url := fmt.Sprintf("/proxy/v1/PSA/%v", session_id)
+	psaReq := httptest.NewRequest(http.MethodPost, psa_url, bytes.NewReader(body.Bytes()))
+	psaReq.Header.Set("Content-Type", writer.FormDataContentType())
 
-	// 	nitro_url := fmt.Sprintf("/proxy/v1/Nitro/%v", session_id)
-	// 	nitroReq := httptest.NewRequest(http.MethodPost, nitro_url, bytes.NewReader(body.Bytes()))
-	// 	nitroReq.Header.Set("Content-Type", writer.FormDataContentType())
-
-	// 	w = httptest.NewRecorder()
-	// 	router.ServeHTTP(w, nitroReq)
-	// 	assert.Equal(t, http.StatusOK, w.Code)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, psaReq)
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
+func manageCertAndKey() error {
+	keyFilename := "TestCaKey.pem"
+	certFilename := "TestCaCert.pem"
+	privateKey, _, certDer, err := generateCertAndKey(false, nil, nil)
+	if err != nil {
+		return fmt.Errorf("Failed to generateCertAndKey:%w", err)
+	}
+	keyFile, err := os.Create(keyFilename)
+	if err != nil {
+		return fmt.Errorf("Failed to create %v file:%w", keyFilename, err)
+	}
+	keyBytes, err := x509.MarshalECPrivateKey(privateKey)
+	if err != nil {
+		return fmt.Errorf("Failed to Marshal private key:%w", err)
+	}
+	if err = pem.Encode(keyFile, &pem.Block{
+		Type:  "EC PRIVATE KEY",
+		Bytes: keyBytes,
+	}); err != nil {
+		return fmt.Errorf("Failed to pem.Encode the key:%w", err)
+	}
+	keyFile.Close()
+
+	certFile, err := os.Create(certFilename)
+	if err != nil {
+		return fmt.Errorf("Failed to create %v file:%w", certFilename, err)
+	}
+	if err = pem.Encode(certFile, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certDer,
+	}); err != nil {
+		return fmt.Errorf("Failed to pem.Encode the cert:%w", err)
+	}
+
+	if err := loadCaCert(certFilename); err != nil {
+		return fmt.Errorf("failed to load CA Cert:%w", err)
+	}
+	if err := loadCaKey(keyFilename); err != nil {
+		return fmt.Errorf("failed to load CA key:%w", err)
+	}
+	return nil
+}
+
+func createPSAToken(nonce *[]byte, csrHash *[]byte, signingKey *ecdsa.PrivateKey) ([]byte, error) {
+	var eatNonce eat.Nonce
+	if err := eatNonce.Add(*nonce); err != nil {
+		return nil, fmt.Errorf("eatNonce.Add failed:%w", err)
+	}
+	profile, err := eat.NewProfile("http://arm.com/psa/2.0.0")
+	if err != nil {
+		return nil, fmt.Errorf("eat.NewProfile failed:%w", err)
+	}
+	evidence := psatoken.Evidence{}
+	clientId := int32(1)
+	securityLifecycle := uint16(12288)
+	implId, err := base64.RawStdEncoding.DecodeString("YWNtZS1pbXBsZW1lbnRhdGlvbi1pZC0wMDAwMDAwMDE")
+	if err != nil {
+		return nil, fmt.Errorf("base64.RawStdEncoding.DecodeString failed:%w", err)
+	}
+	measurementValue := []byte{0xde, 0xad, 0xbe, 0xef, 0xf0, 0x0d, 0xca, 0xfe,
+		0xde, 0xad, 0xbe, 0xef, 0xf0, 0x0d, 0xca, 0xfe,
+		0xde, 0xad, 0xbe, 0xef, 0xf0, 0x0d, 0xca, 0xfe,
+		0xde, 0xad, 0xbe, 0xef, 0xf0, 0x0d, 0xca, 0xfe,
+	}
+	measurementType := "ARoT"
+	swComponents := []psatoken.SwComponent{
+		{
+			MeasurementType:  &measurementType,
+			MeasurementValue: &measurementValue,
+			SignerID:         csrHash,
+		},
+	}
+	instId, err := base64.RawStdEncoding.DecodeString("AUPrpZ0QYvwASGLQxlP3km/UKvWLBi5bSilQndDQphu7")
+	if err != nil {
+		return nil, fmt.Errorf("base64.RawStdEncoding.DecodeString failed for instId:%w", err)
+	}
+	fmt.Printf("instId(%v):%x\n", len(instId), instId)
+	instUeid := eat.UEID(instId)
+	claims := psatoken.P2Claims{
+		Profile:           profile,
+		ClientID:          &clientId,
+		SecurityLifeCycle: &securityLifecycle,
+		ImplID:            &implId,
+		SwComponents:      &swComponents,
+		Nonce:             &eatNonce,
+		InstID:            &instUeid,
+	}
+	if err := evidence.SetClaims(&claims); err != nil {
+		return nil, fmt.Errorf("evidence.SetClaims failed:%w", err)
+	}
+
+	coseSigner, err := cose.NewSigner(cose.AlgorithmES384, signingKey)
+	if err != nil {
+		return nil, fmt.Errorf("cose.NewSigner failed:%w", err)
+	}
+
+	cwt, err := evidence.Sign(coseSigner)
+	if err != nil {
+		return nil, fmt.Errorf("evidence.Sign failed:%w", err)
+	}
+	return cwt, nil
+}
 func createTestProxyHandler() *ProxyHandler {
 	vtsAddress := "127.0.0.1:50051"
 
@@ -411,12 +517,22 @@ func provision_nitro_corim(caCertDer []byte) error {
 	return nil
 }
 
-func provision_psa_corim() error {
+func provision_psa_corim(signingKey *ecdsa.PrivateKey) error {
+	publicSigningKey := signingKey.Public()
+	encodedPublicKey, err := x509.MarshalPKIXPublicKey(publicSigningKey)
+	if err != nil {
+		return fmt.Errorf("x509.MarshalPKIXPublicKey failed:%w", err)
+	}
+	publicKeyPem := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: encodedPublicKey}))
+	publicKeyPem = strings.Replace(publicKeyPem, "\n", "\\n", -1)
 	// first, generate the COMID
-	psaComidJSON, err := ioutil.ReadFile("MyComidPsaIak.json")
+	psaComidTemplateBytes, err := ioutil.ReadFile("MyComidPsaIakTemplate.json")
 	if err != nil {
 		return fmt.Errorf("Failed to read template file:%w", err)
 	}
+	psaComidTemplate := string(psaComidTemplateBytes)
+	psaComidJSON := strings.Replace(psaComidTemplate, "<PUBLIC KEY>", publicKeyPem, 1)
+
 	var myComid comid.Comid
 	myComid.FromJSON([]byte(psaComidJSON))
 
@@ -433,7 +549,7 @@ func provision_psa_corim() error {
 	cborReader := bytes.NewReader(corimCBOR)
 	url := "http://127.0.0.1:8888/endorsement-provisioning/v1/submit"
 	request, err := http.NewRequest("POST", url, cborReader)
-	request.Header.Add("CONTENT-TYPE", "application/corim-unsigned+cbor; profile=http://aws.com/nitro")
+	request.Header.Add("CONTENT-TYPE", "application/corim-unsigned+cbor; profile=http://arm.com/psa/iot/1")
 	client := http.Client{
 		Timeout: time.Second * 10,
 	}
@@ -466,57 +582,50 @@ func generateCORIM(myComid comid.Comid) ([]byte, error) {
 	return corimCBOR, nil
 }
 
+func generateCertAndKey(expired bool, parentCert *x509.Certificate, parentKey *ecdsa.PrivateKey) (*ecdsa.PrivateKey, *x509.Certificate, []byte, error) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to generate key:%v", err)
+	}
+	notBefore, notAfter := generateValidTimeRange(expired)
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			Organization: []string{"Acme Co"},
+		},
+		NotBefore: notBefore,
+		NotAfter:  notAfter,
+
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		IsCA:                  parentCert == nil,
+		BasicConstraintsValid: true,
+	}
+	// if parentCert is nil, this is to be a CA Certificate
+	if parentCert == nil {
+		parentCert = &template
+		parentKey = key
+	}
+	certDer, err := x509.CreateCertificate(rand.Reader, &template, parentCert, &key.PublicKey, parentKey)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("Failed to generate CA Certificate:%v", err)
+	}
+	cert, err := x509.ParseCertificate(certDer)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("Failed to convert CA Cert der to certificate:%v", err)
+	}
+	return key, cert, certDer, nil
+}
+
 func generateCertsAndKeys(endCertExpired bool, caCertExpired bool) (*ecdsa.PrivateKey, []byte, *x509.Certificate, []byte, error) {
-	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	caKey, caCert, caCertDer, err := generateCertAndKey(caCertExpired, nil, nil)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to generate CA key:%v", err)
+		return nil, nil, nil, nil, fmt.Errorf("generateCertAndKey failed for CACert:%w", err)
 	}
 
-	caNotBefore, caNotAfter := generateValidTimeRange(caCertExpired)
-	caTemplate := x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject: pkix.Name{
-			Organization: []string{"Acme Co"},
-		},
-		NotBefore: caNotBefore,
-		NotAfter:  caNotAfter,
-
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-		IsCA:                  true,
-		BasicConstraintsValid: true,
-	}
-
-	caCertDer, err := x509.CreateCertificate(rand.Reader, &caTemplate, &caTemplate, &caKey.PublicKey, caKey)
+	endKey, _, endCertDer, err := generateCertAndKey(endCertExpired, caCert, caKey)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("Failed to generate CA Certificate:%v", err)
-	}
-	caCert, err := x509.ParseCertificate(caCertDer)
-	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("Failed to convert CA Cert der to certificate:%v", err)
-	}
-
-	endKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("Failed to generate end key:%v", err)
-	}
-
-	endNotBefore, endNotAfter := generateValidTimeRange(endCertExpired)
-	endTemplate := x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject: pkix.Name{
-			Organization: []string{"Acme Co"},
-		},
-		NotBefore: endNotBefore,
-		NotAfter:  endNotAfter,
-
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-		BasicConstraintsValid: true,
-	}
-	endCertDer, err := x509.CreateCertificate(rand.Reader, &endTemplate, caCert, &endKey.PublicKey, caKey)
-	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("Failed to generate end certificate:%v", err)
+		return nil, nil, nil, nil, fmt.Errorf("generateCertAndKey failed for End Cert:%w", err)
 	}
 	return endKey, endCertDer, caCert, caCertDer, nil
 }

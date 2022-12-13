@@ -56,8 +56,7 @@ const (
 )
 
 var (
-	caCert x509.Certificate
-	//caPrivateKey ecdsa.PrivateKey
+	caCert       x509.Certificate
 	caPrivateKey crypto.Signer
 )
 
@@ -345,16 +344,15 @@ func convertCSRIntoCert(csr *x509.CertificateRequest, enclave_hash []byte) ([]by
 
 	clientCert, err := x509.CreateCertificate(rand.Reader, &clientCertTemplate, &caCert, csr.PublicKey, caPrivateKey)
 	if err != nil {
-		return nil, fmt.Errorf("convertCSRIntoCert: Failed to generate certificate:%v", err)
+		return nil, fmt.Errorf("x.509.CreateCertificate failed::%w", err)
 	}
 	return clientCert, nil
 }
 
-func loadCaCert() error {
-	filename := "./CACert.pem"
+func loadCaCert(filename string) error {
 	pem_data, err := os.ReadFile(filename)
 	if err != nil {
-		return fmt.Errorf("os.ReadFile failed to open %v for reading:%v", filename, err)
+		return fmt.Errorf("os.ReadFile failed to open %v for reading:%w", filename, err)
 	}
 	block, _ := pem.Decode(pem_data)
 	if block == nil {
@@ -369,8 +367,7 @@ func loadCaCert() error {
 	return nil
 }
 
-func loadCaKey() error {
-	filename := "./CAKey.pem"
+func loadCaKey(filename string) error {
 	pem_data, err := os.ReadFile(filename)
 	if err != nil {
 		return fmt.Errorf("os.ReadFile failed to open %v for reading:%v", filename, err)
@@ -404,13 +401,13 @@ func createRouter(proxyHandler *ProxyHandler) (*gin.Engine, error) {
 func main() {
 	fmt.Println("Starting Proxy Attestation Server")
 
-	err := loadCaCert()
+	err := loadCaCert("./CACert.pem")
 	if err != nil {
 		fmt.Printf("Proxy Attestation Server: loadCaCert failed:%v\n", err)
 		return
 	}
 
-	err = loadCaKey()
+	err = loadCaKey("./CAKey.pem")
 	if err != nil {
 		fmt.Printf("Proxy Attestation Server: loadCaKey failed:%v\n", err)
 		return

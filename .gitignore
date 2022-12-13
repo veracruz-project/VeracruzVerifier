@@ -6,3 +6,5 @@ scheme-psa-iot
 proxy_attestation_server
 vts
 *.cbor
+TestCaCert.pem
+TestCaKey.pem
