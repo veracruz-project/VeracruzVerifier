@@ -1,4 +1,4 @@
-ame: Proxy Attestation Service module
+name: Proxy Attestation Service module
 
 on:
   pull_request:
