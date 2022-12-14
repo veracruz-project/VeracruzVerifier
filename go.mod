@@ -2,7 +2,7 @@ module github.com/veracruz-project/proxy_attestation_server
 
 go 1.18
 
-replace github.com/veraison/services => ./services
+replace github.com/veraison/services => github.com/dreemkiller/services v0.0.0-20221214212508-aab1f15c78b1
 
 require (
 	github.com/gin-gonic/gin v1.8.1
@@ -11,6 +11,11 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/viper v1.9.0
 	github.com/stretchr/testify v1.8.1
+	github.com/veracruz-project/go-nitro-enclave-attestation-document v0.0.0-20221128190504-3eeb9fee39cb
+	github.com/veraison/corim v0.0.0-20220801100627-a48aacbd333c
+	github.com/veraison/eat v0.0.0-20210331113810-3da8a4dd42ff
+	github.com/veraison/go-cose v1.0.0-rc.1
+	github.com/veraison/psatoken v0.0.2-0.20220729120948-5bec1d03670c
 	github.com/veraison/services v0.0.0-20221207091824-21d623f1e2e7
 )
 
@@ -67,11 +72,6 @@ require (
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
 	github.com/vektah/gqlparser/v2 v2.4.6 // indirect
-	github.com/veracruz-project/go-nitro-enclave-attestation-document v0.0.0-20221128190504-3eeb9fee39cb // indirect
-	github.com/veraison/corim v0.0.0-20220801100627-a48aacbd333c // indirect
-	github.com/veraison/eat v0.0.0-20210331113810-3da8a4dd42ff // indirect
-	github.com/veraison/go-cose v1.0.0-rc.1 // indirect
-	github.com/veraison/psatoken v0.0.2-0.20220729120948-5bec1d03670c // indirect
 	github.com/veraison/swid v0.0.1-beta.6 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
