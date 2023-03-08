@@ -2,21 +2,21 @@ module github.com/veracruz-project/proxy_attestation_server
 
 go 1.18
 
-replace github.com/veraison/services => github.com/dreemkiller/services v0.0.0-20221214212508-aab1f15c78b1
+replace github.com/veraison/services => github.com/dreemkiller/services v0.0.0-20230308222202-b3e03ace6c88
 
 require (
 	github.com/gin-gonic/gin v1.8.1
 	github.com/google/uuid v1.3.0
 	github.com/moogar0880/problems v0.1.1
 	github.com/satori/go.uuid v1.2.0
-	github.com/spf13/viper v1.9.0
+	github.com/spf13/viper v1.13.0
 	github.com/stretchr/testify v1.8.1
-	github.com/veracruz-project/go-nitro-enclave-attestation-document v0.0.0-20221128190504-3eeb9fee39cb
-	github.com/veraison/corim v0.0.0-20220801100627-a48aacbd333c
-	github.com/veraison/eat v0.0.0-20210331113810-3da8a4dd42ff
+	github.com/veracruz-project/go-nitro-enclave-attestation-document v0.0.0-20230308204408-e07b2b5e6cc4
+	github.com/veraison/corim v0.0.0-20230123231101-0e8a4a38a25a
+	github.com/veraison/eat v0.0.0-20220117140849-ddaf59d69f53
 	github.com/veraison/go-cose v1.0.0-rc.1
-	github.com/veraison/psatoken v0.0.2-0.20220729120948-5bec1d03670c
-	github.com/veraison/services v0.0.0-20221207091824-21d623f1e2e7
+	github.com/veraison/psatoken v1.1.0
+	github.com/veraison/services v0.0.0-00010101000000-000000000000
 )
 
 require (
@@ -24,7 +24,7 @@ require (
 	github.com/agnivade/levenshtein v1.0.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.0-20210816181553-5444fa50b93d // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/fxamacker/cbor/v2 v2.4.0 // indirect
@@ -34,21 +34,22 @@ require (
 	github.com/go-playground/universal-translator v0.18.0 // indirect
 	github.com/go-playground/validator/v10 v10.10.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
-	github.com/goccy/go-json v0.9.7 // indirect
+	github.com/goccy/go-json v0.9.11 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/go-cmp v0.5.8 // indirect
+	github.com/google/go-tpm v0.3.3 // indirect
 	github.com/hashicorp/go-hclog v1.2.0 // indirect
 	github.com/hashicorp/go-plugin v1.4.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hashicorp/yamux v0.0.0-20180604194846-3520598351bb // indirect
+	github.com/huandu/xstrings v1.3.3 // indirect
 	github.com/jellydator/ttlcache/v3 v3.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
-	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
-	github.com/lestrrat-go/blackmagic v1.0.0 // indirect
+	github.com/lestrrat-go/blackmagic v1.0.1 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
-	github.com/lestrrat-go/iter v1.0.1 // indirect
-	github.com/lestrrat-go/jwx v1.2.23 // indirect
+	github.com/lestrrat-go/httprc v1.0.4 // indirect
+	github.com/lestrrat-go/iter v1.0.2 // indirect
+	github.com/lestrrat-go/jwx/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/option v1.0.0 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
@@ -72,6 +73,9 @@ require (
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
 	github.com/vektah/gqlparser/v2 v2.4.6 // indirect
+	github.com/veraison/ccatoken v1.0.0 // indirect
+	github.com/veraison/dice v0.0.1 // indirect
+	github.com/veraison/ear v1.0.1 // indirect
 	github.com/veraison/swid v0.0.1-beta.6 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
@@ -80,7 +84,7 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.23.0 // indirect
-	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e // indirect
+	golang.org/x/crypto v0.0.0-20221005025214-4161e89ecf1b // indirect
 	golang.org/x/net v0.0.0-20220909164309-bea034e7d591 // indirect
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
 	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10 // indirect
