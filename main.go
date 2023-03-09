@@ -489,10 +489,10 @@ func main() {
 	session_manager := session.NewSessionManager()
 
 	vtsClientCfg := viper.New()
-	vtsClientCfg.SetDefault("vts.server-addr", "127.0.0.1:50051")
+	vtsClientCfg.SetDefault("server-addr", "127.0.0.1:50051")
 	vtsClient := vtsclient.NewGRPC()
 	if err = vtsClient.Init(vtsClientCfg); err != nil {
-		fmt.Printf("vtxClient.Init failed:%v\n", err)
+		fmt.Printf("vtsClient.Init failed:%v\n", err)
 		return
 	}
 
