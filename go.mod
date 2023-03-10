@@ -2,7 +2,7 @@ module github.com/veracruz-project/proxy_attestation_server
 
 go 1.18
 
-replace github.com/veraison/services => github.com/dreemkiller/services v0.0.0-20230309234112-e845b0d11d65
+replace github.com/veraison/services => github.com/dreemkiller/services v0.0.0-20230310184918-147273f63398
 
 require (
 	github.com/gin-gonic/gin v1.8.1
