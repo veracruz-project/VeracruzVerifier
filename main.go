@@ -222,6 +222,8 @@ func parseAttestationResultNitro(ctx *proto.AppraisalContext) (*[]byte, *[]byte,
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("parseAttestationResultNitro: pcr0_string:%v could not be decoded as base64:%v", pcr0_string, err)
 	}
+	// AWS NItro used SHA384. We only use the first 32 bytes
+	runtime_manager_hash = runtime_manager_hash[..32]
 
 	user_data := evidence_map["user_data"]
 	if user_data == nil {
