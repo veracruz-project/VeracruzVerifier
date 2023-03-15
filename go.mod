@@ -2,7 +2,8 @@ module github.com/veracruz-project/proxy_attestation_server
 
 go 1.18
 
-replace github.com/veraison/services => github.com/dreemkiller/services v0.0.0-20230313193900-b8c70325eef0
+replace github.com/veraison/services => github.com/dreemkiller/services v0.0.0-20230315160325-0fc6aef5227e
+
 require (
 	github.com/gin-gonic/gin v1.8.1
 	github.com/google/uuid v1.3.0
@@ -10,7 +11,7 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/viper v1.13.0
 	github.com/stretchr/testify v1.8.1
-	github.com/veracruz-project/go-nitro-enclave-attestation-document v0.0.0-20230308204408-e07b2b5e6cc4
+	github.com/veracruz-project/go-nitro-enclave-attestation-document v0.0.0-20230315135749-6fc97d770084
 	github.com/veraison/corim v0.0.0-20230123231101-0e8a4a38a25a
 	github.com/veraison/eat v0.0.0-20220117140849-ddaf59d69f53
 	github.com/veraison/go-cose v1.0.0-rc.1
