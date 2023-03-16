@@ -30,8 +30,4 @@ jobs:
           go build -o ./vts/vts github.com/veraison/services/vts/cmd/vts-service
           echo "building provisioning-service"
           go build -o ./provisioning/provisioning github.com/veraison/services/provisioning/cmd/provisioning-service
-          go build -o ./provisioning/plugins/corim-psa-decoder github.com/veraison/services/provisioning/plugins/corim-psa-decoder
-          go build -o ./provisioning/plugins/corim-nitro-decoder github.com/veraison/services/provisioning/plugins/corim-nitro-decoder
-          go build -o ./vts/plugins/scheme-psa-iot github.com/veraison/services/vts/plugins/scheme-psa-iot
-          go build -o ./vts/plugins/scheme-aws-nitro github.com/veraison/services/vts/plugins/scheme-aws-nitro
           go test
