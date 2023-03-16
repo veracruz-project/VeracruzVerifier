@@ -1,3 +1,13 @@
+// ! Proxy Attestation Server for the Veracruz project
+// !
+// ! ## Authors
+// !
+// ! The Veracruz Development Team.
+// !
+// ! ## Licensing and copyright notice
+// !
+// ! See the `LICENSE_MIT.markdown` file in the Veracruz root directory for
+// ! information on licensing and copyright.
 package main
 
 import (
@@ -19,11 +29,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dreemkiller/proxy_attestation_server/session"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/moogar0880/problems"
-	"github.com/setrofim/viper"
+	"github.com/spf13/viper"
+	"github.com/veracruz-project/proxy_attestation_server/session"
 	"github.com/veraison/services/proto"
 	"github.com/veraison/services/vtsclient"
 )
@@ -46,8 +56,7 @@ const (
 )
 
 var (
-	caCert x509.Certificate
-	//caPrivateKey ecdsa.PrivateKey
+	caCert       x509.Certificate
 	caPrivateKey crypto.Signer
 )
 
@@ -114,41 +123,118 @@ func extractIdTokenCsr(c *gin.Context) (*uuid.UUID, []byte, []byte, error) {
 
 }
 
-func parseEvidenceMapPsa(evidenceMap map[string]interface{}) (*[]byte, *[]byte, *[]byte, error) {
-	nonce, err := base64.StdEncoding.DecodeString(evidenceMap["psa-nonce"].(string))
+func parseAttestationResultPsa(ctx *proto.AppraisalContext) (*[]byte, *[]byte, *[]byte, error) {
+	evidence_map := (*ctx.Evidence.Evidence).AsMap()
+
+	nonce_entry := evidence_map["psa-nonce"]
+	if nonce_entry == nil {
+		return nil, nil, nil, fmt.Errorf("parseAttestationResultPsa: no nonce entry in evidence map")
+	}
+	nonce_string, ok := nonce_entry.(string)
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("parseAttestationResultPsa: nonce_entry:%v cannot be interpreted as a string", nonce_entry)
+	}
+	nonce, err := base64.StdEncoding.DecodeString(nonce_string)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("parseEvidenceMapPsa: appraisalCtx.Result.ProcessedEvidence[\"nonce\"]:%v could not be decoded as base64:%v", evidenceMap["nonce"], err)
+		return nil, nil, nil, fmt.Errorf("parseAttestationResultPsa: result.Nonce:%v could not be decoded as base64:%v", nonce_string, err)
 	}
 
-	psa_sw_components := evidenceMap["psa-software-components"].([]interface{})
-	psa_sw_components_map := psa_sw_components[0].(map[string]interface{})
-	runtime_manager_hash, err := base64.StdEncoding.DecodeString(psa_sw_components_map["measurement-value"].(string))
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("parseEvidenceMapPsa: appraisalCtx.Result.ProcessedEvidence[\"psa-software-componetns\"][\"measurement-value\"]:%v could not be decoded as base64:%v", psa_sw_components_map["measurement-value"], err)
+	psa_sw_components := evidence_map["psa-software-components"]
+	if psa_sw_components == nil {
+		return nil, nil, nil, fmt.Errorf("parseAttestationResultPsa: no psa-software-components entry in evidence map")
 	}
 
-	csr_hash, err := base64.StdEncoding.DecodeString(psa_sw_components_map["signer-id"].(string))
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("PsaRouter: appraisalCtx.Result.ProcessedEvidence[\"user_data\"]:%v could not be decoded as base64:%v", psa_sw_components_map["signer-id"], err)
+	component_array, ok := psa_sw_components.([]interface{})
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("parseAttestationResultPsa: Failed to interpret psa_sw_components:%v as array of interface{}", psa_sw_components)
 	}
+
+	var runtime_manager_hash []byte
+	var csr_hash []byte
+	found_arot := false
+	for _, this_component := range component_array {
+		this_component_map, ok := this_component.(map[string]interface{})
+		if !ok {
+			return nil, nil, nil, fmt.Errorf("parseAttestationResultPsa: this_component:%v cannot be interpreted as a map[string]interface{}", this_component)
+		}
+		fmt.Printf("this_component_map:%v\n", this_component_map)
+		measurement_type, ok := this_component_map["measurement-type"].(string)
+		if !ok {
+			return nil, nil, nil, fmt.Errorf("parseAttestationResultPsa: this_component_map[\"measurement-type\"]:%v cannot be interpreted as a string", this_component_map["measurement-type"])
+		}
+		if measurement_type == "ARoT" {
+			found_arot = true
+			measurement_value, ok := this_component_map["measurement-value"].(string)
+			if !ok {
+				return nil, nil, nil, fmt.Errorf("parseAttestationResultPsa: this_component_map[\"measurement-value\"]:%v cannot be interpreted as a string", this_component_map["measurement-value"])
+			}
+
+			runtime_manager_hash, err = base64.StdEncoding.DecodeString(measurement_value)
+			if err != nil {
+				return nil, nil, nil, fmt.Errorf("parseAttestationResultPsa: %v could not be decoded as base64:%v", measurement_value, err)
+			}
+
+			signer_id, ok := this_component_map["signer-id"].(string)
+			if !ok {
+				return nil, nil, nil, fmt.Errorf("parseAttestationResultPsa: this_component_map[\"signer-id\"]:%v cannot be interpreted as a string", this_component_map["signer-id"])
+			}
+
+			csr_hash, err = base64.StdEncoding.DecodeString(signer_id)
+			if err != nil {
+				return nil, nil, nil, fmt.Errorf("PsaRouter: %v could not be decoded as base64:%v", signer_id, err)
+			}
+			break
+		}
+	}
+	if !found_arot {
+		return nil, nil, nil, fmt.Errorf("PSARouter: Failed to find ARoT measurement in PSA token")
+	}
+
 	return &nonce, &runtime_manager_hash, &csr_hash, nil
 }
 
-func parseEvidenceMapNitro(evidenceMap map[string]interface{}) (*[]byte, *[]byte, *[]byte, error) {
-	nonce, err := base64.StdEncoding.DecodeString(evidenceMap["nonce"].(string))
+func parseAttestationResultNitro(ctx *proto.AppraisalContext) (*[]byte, *[]byte, *[]byte, error) {
+	evidence_map := (*ctx.Evidence.Evidence).AsMap()
+
+	nonce_entry := evidence_map["nonce"]
+	if nonce_entry == nil {
+		return nil, nil, nil, fmt.Errorf("parseAttestationResultNitro: no nonce entry in evidence map")
+	}
+	nonce_string, ok := evidence_map["nonce"].(string)
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("parseAttestationResultNitro: nonce_entry:%v cannot be interpreted as a string", nonce_entry)
+	}
+	nonce, err := base64.StdEncoding.DecodeString(nonce_string)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("parseEvidenceMapNitro: appraisalCtx.Result.ProcessedEvidence[\"nonce\"]:%v could not be decoded as base64:%v", evidenceMap["nonce"], err)
+		return nil, nil, nil, fmt.Errorf("parseAttestationResultNitro: nonce_string:%v could not be decoded as base64:%v", nonce_string, err)
 	}
 
-	pcr0, err := base64.StdEncoding.DecodeString(evidenceMap["PCR0"].(string))
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("parseEvidenceMapNitro: appraisalCtx.Result.ProcessedEvidence[\"PCR0\"]:%v could not be decoded as base64:%v", evidenceMap["PCR0"], err)
+	pcr0 := evidence_map["PCR0"]
+	if pcr0 == nil {
+		return nil, nil, nil, fmt.Errorf("parseAttestationResultNitro: No PCR0 entry in evidence_map")
 	}
-	runtime_manager_hash := pcr0[0:32]
-
-	csr_hash, err := base64.StdEncoding.DecodeString(evidenceMap["user_data"].(string))
+	pcr0_string, ok := pcr0.(string)
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("parseAttestationResultNitro: pcr0:%v could not be interpreted as a string", pcr0)
+	}
+	runtime_manager_hash, err := base64.StdEncoding.DecodeString(pcr0_string)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("NitroRouter: appraisalCtx.Result.ProcessedEvidence[\"user_data\"]:%v could not be decoded as base64:%v", evidenceMap["user_data"], err)
+		return nil, nil, nil, fmt.Errorf("parseAttestationResultNitro: pcr0_string:%v could not be decoded as base64:%v", pcr0_string, err)
+	}
+	// AWS NItro used SHA384. We only use the first 32 bytes
+	runtime_manager_hash = runtime_manager_hash[0:32]
+
+	user_data := evidence_map["user_data"]
+	if user_data == nil {
+		return nil, nil, nil, fmt.Errorf("parseAttestationResultNitro: No user_data entry in evidence_map")
+	}
+	user_data_string, ok := user_data.(string)
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("parseAttestationResultNitro: user_data:%v could not be interpreted as a string", user_data)
+	}
+	csr_hash, err := base64.StdEncoding.DecodeString(user_data_string)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("parseAttestationResultNitro: user_data_string:%v could not be decoded as base64:%v", user_data_string, err)
 	}
 
 	return &nonce, &runtime_manager_hash, &csr_hash, nil
@@ -162,7 +248,7 @@ const (
 )
 
 func (o *ProxyHandler) genericRouter(c *gin.Context, platform PlatformType) {
-	id, token_data, csr_data, err := extractIdTokenCsr(c)
+	id, tokenData, csr_data, err := extractIdTokenCsr(c)
 	if err != nil {
 		reportProblem(c,
 			http.StatusBadRequest,
@@ -184,7 +270,7 @@ func (o *ProxyHandler) genericRouter(c *gin.Context, platform PlatformType) {
 
 	token := &proto.AttestationToken{
 		TenantId:  tenantID,
-		Data:      token_data,
+		Data:      tokenData,
 		MediaType: mediaType,
 	}
 
@@ -193,37 +279,30 @@ func (o *ProxyHandler) genericRouter(c *gin.Context, platform PlatformType) {
 		token,
 	)
 	if err != nil {
+		fmt.Printf("GetAttestation failed:%v\n", err)
 		reportProblem(c,
 			http.StatusInternalServerError,
 			fmt.Sprintf("genericRouter: o.vtsClient.GetAttestation failed:%v", err))
 		return
 	}
 
-	if proto.ARStatus(appraisalCtx.Result.TrustVector.Hardware) != proto.ARStatus_CONF_AFFIRMING {
-		reportProblem(c,
-			http.StatusInternalServerError,
-			fmt.Sprintf("genericRouter: appraisalCtx.Result.TrustVector.HardwareAuthenticity:%v is not \"SUCCESS\"", appraisalCtx.Result.TrustVector.Hardware))
-		return
-	}
-	evidenceMap := appraisalCtx.Result.ProcessedEvidence.AsMap()
-
 	var nonce *[]byte
 	var runtime_manager_hash *[]byte
 	var received_csr_hash *[]byte
 	if platform == PSAPlatform {
-		nonce, runtime_manager_hash, received_csr_hash, err = parseEvidenceMapPsa(evidenceMap)
+		nonce, runtime_manager_hash, received_csr_hash, err = parseAttestationResultPsa(appraisalCtx)
 		if err != nil {
 			reportProblem(c,
 				http.StatusInternalServerError,
-				fmt.Sprintf("genericRouter: Call to parseEvidenceMapPsa failed:%v", err))
+				fmt.Sprintf("genericRouter: Call to parseAttestationResultPsa failed:%v", err))
 			return
 		}
 	} else if platform == NitroPlatform {
-		nonce, runtime_manager_hash, received_csr_hash, err = parseEvidenceMapNitro(evidenceMap)
+		nonce, runtime_manager_hash, received_csr_hash, err = parseAttestationResultNitro(appraisalCtx)
 		if err != nil {
 			reportProblem(c,
 				http.StatusInternalServerError,
-				fmt.Sprintf("genericRouter: Call to parseEvidenceMapNitro failed:%v", err))
+				fmt.Sprintf("genericRouter: Call to parseAttestationResultNitro failed:%v", err))
 			return
 		}
 	} else {
@@ -334,16 +413,15 @@ func convertCSRIntoCert(csr *x509.CertificateRequest, enclave_hash []byte) ([]by
 
 	clientCert, err := x509.CreateCertificate(rand.Reader, &clientCertTemplate, &caCert, csr.PublicKey, caPrivateKey)
 	if err != nil {
-		return nil, fmt.Errorf("convertCSRIntoCert: Failed to generate certificate:%v", err)
+		return nil, fmt.Errorf("x.509.CreateCertificate failed::%w", err)
 	}
 	return clientCert, nil
 }
 
-func loadCaCert() error {
-	filename := "./CACert.pem"
+func loadCaCert(filename string) error {
 	pem_data, err := os.ReadFile(filename)
 	if err != nil {
-		return fmt.Errorf("os.ReadFile failed to open %v for reading:%v", filename, err)
+		return fmt.Errorf("os.ReadFile failed to open %v for reading:%w", filename, err)
 	}
 	block, _ := pem.Decode(pem_data)
 	if block == nil {
@@ -358,8 +436,7 @@ func loadCaCert() error {
 	return nil
 }
 
-func loadCaKey() error {
-	filename := "./CAKey.pem"
+func loadCaKey(filename string) error {
 	pem_data, err := os.ReadFile(filename)
 	if err != nil {
 		return fmt.Errorf("os.ReadFile failed to open %v for reading:%v", filename, err)
@@ -377,18 +454,31 @@ func loadCaKey() error {
 	return nil
 }
 
-func main() {
-	fmt.Println("Hello, World!")
+func createRouter(proxyHandler *ProxyHandler) (*gin.Engine, error) {
+	router := gin.New()
 
-	err := loadCaCert()
+	router.Use(gin.Logger())
+	router.Use(gin.Recovery())
+
+	router.Group("/proxy/v1").
+		POST("/Start", proxyHandler.Start).
+		POST("PSA/:id", proxyHandler.PsaRouter).
+		POST("Nitro/:id", proxyHandler.NitroRouter)
+	return router, nil
+}
+
+func main() {
+	fmt.Println("Starting Proxy Attestation Server")
+
+	err := loadCaCert("./CACert.pem")
 	if err != nil {
-		fmt.Printf("loadCaCert failed:%v\n", err)
+		fmt.Printf("Proxy Attestation Server: loadCaCert failed:%v\n", err)
 		return
 	}
 
-	err = loadCaKey()
+	err = loadCaKey("./CAKey.pem")
 	if err != nil {
-		fmt.Printf("loadCaKey failed:%v\n", err)
+		fmt.Printf("Proxy Attestation Server: loadCaKey failed:%v\n", err)
 		return
 	}
 
@@ -400,23 +490,23 @@ func main() {
 	session_manager := session.NewSessionManager()
 
 	vtsClientCfg := viper.New()
-	vtsClientCfg.SetDefault("vts-server.addr", "127.0.0.1:50051")
-	vtsClient := vtsclient.NewGRPC(vtsClientCfg)
+	vtsClientCfg.SetDefault("server-addr", "127.0.0.1:50051")
+	vtsClient := vtsclient.NewGRPC()
+	if err = vtsClient.Init(vtsClientCfg); err != nil {
+		fmt.Printf("vtsClient.Init failed:%v\n", err)
+		return
+	}
 
 	proxyHandler := NewProxyHandler(session_manager, vtsClient)
 
-	router := gin.New()
-
-	router.Use(gin.Logger())
-	router.Use(gin.Recovery())
-
-	router.Group("/proxy/v1").
-		POST("/Start", proxyHandler.Start).
-		POST("PSA/:id", proxyHandler.PsaRouter).
-		POST("Nitro/:id", proxyHandler.NitroRouter)
+	router, err := createRouter(proxyHandler)
+	if err != nil {
+		fmt.Printf("Failed to create router:%v\n", err)
+		return
+	}
 
 	err = router.Run(listenAddress)
 	if err != nil {
-		fmt.Printf("Router failed to run:%v\n", err)
+		fmt.Printf("Proxy Attestation Server: Router failed to run:%v\n", err)
 	}
 }
