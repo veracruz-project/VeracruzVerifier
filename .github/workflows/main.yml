@@ -27,7 +27,7 @@ jobs:
       - name: Test
         run: |
           echo "building vts-service"
-          go build -o ./vts/vts github.com/veraison/services/vts/cmd/vts-service
+          go build -o ./vts/vts  -ldflags "-X 'github.com/veraison/services/config.SchemeLoader=builtin'" github.com/veraison/services/vts/cmd/vts-service
           echo "building provisioning-service"
-          go build -o ./provisioning/provisioning github.com/veraison/services/provisioning/cmd/provisioning-service
+          go build -o ./provisioning/provisioning -ldflags "-X 'github.com/veraison/services/config.SchemeLoader=builtin'" github.com/veraison/services/provisioning/cmd/provisioning-service
           go test
