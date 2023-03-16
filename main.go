@@ -1,13 +1,13 @@
-//! Proxy Attestation Server for the Veracruz project
-//!
-//! ## Authors
-//!
-//! The Veracruz Development Team.
-//!
-//! ## Licensing and copyright notice
-//!
-//! See the `LICENSE_MIT.markdown` file in the Veracruz root directory for
-//! information on licensing and copyright.
+// ! Proxy Attestation Server for the Veracruz project
+// !
+// ! ## Authors
+// !
+// ! The Veracruz Development Team.
+// !
+// ! ## Licensing and copyright notice
+// !
+// ! See the `LICENSE_MIT.markdown` file in the Veracruz root directory for
+// ! information on licensing and copyright.
 package main
 
 import (
@@ -190,7 +190,6 @@ func parseAttestationResultPsa(ctx *proto.AppraisalContext) (*[]byte, *[]byte, *
 		return nil, nil, nil, fmt.Errorf("PSARouter: Failed to find ARoT measurement in PSA token")
 	}
 
-	
 	return &nonce, &runtime_manager_hash, &csr_hash, nil
 }
 
