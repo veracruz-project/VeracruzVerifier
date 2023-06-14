@@ -10,7 +10,7 @@ require (
 	github.com/moogar0880/problems v0.1.1
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/viper v1.13.0
-	github.com/stretchr/testify v1.8.3
+	github.com/stretchr/testify v1.8.4
 	github.com/veracruz-project/go-nitro-enclave-attestation-document v0.0.0-20230315135749-6fc97d770084
 	github.com/veraison/corim v0.0.0-20230123231101-0e8a4a38a25a
 	github.com/veraison/eat v0.0.0-20220117140849-ddaf59d69f53
@@ -26,7 +26,7 @@ require (
 	github.com/bytedance/sonic v1.9.1 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/fxamacker/cbor/v2 v2.4.0 // indirect
@@ -39,7 +39,6 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/go-tpm v0.3.3 // indirect
 	github.com/hashicorp/go-hclog v1.2.0 // indirect
 	github.com/hashicorp/go-plugin v1.4.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -53,8 +52,8 @@ require (
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
 	github.com/lestrrat-go/httprc v1.0.4 // indirect
 	github.com/lestrrat-go/iter v1.0.2 // indirect
-	github.com/lestrrat-go/jwx/v2 v2.0.8 // indirect
-	github.com/lestrrat-go/option v1.0.0 // indirect
+	github.com/lestrrat-go/jwx/v2 v2.0.11 // indirect
+	github.com/lestrrat-go/option v1.0.1 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
@@ -70,6 +69,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 // indirect
+	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/spf13/afero v1.9.2 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
@@ -78,8 +78,6 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	github.com/vektah/gqlparser/v2 v2.4.6 // indirect
-	github.com/veraison/ccatoken v1.0.0 // indirect
-	github.com/veraison/dice v0.0.1 // indirect
 	github.com/veraison/ear v1.0.1 // indirect
 	github.com/veraison/swid v0.0.1-beta.6 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
@@ -92,7 +90,7 @@ require (
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/crypto v0.9.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
-	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
+	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	google.golang.org/genproto v0.0.0-20220624142145-8cd45d7dbd1f // indirect
