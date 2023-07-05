@@ -39,7 +39,6 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/go-tpm v0.3.3 // indirect
 	github.com/hashicorp/go-hclog v1.2.0 // indirect
 	github.com/hashicorp/go-plugin v1.4.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -78,8 +77,6 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	github.com/vektah/gqlparser/v2 v2.4.6 // indirect
-	github.com/veraison/ccatoken v1.0.0 // indirect
-	github.com/veraison/dice v0.0.1 // indirect
 	github.com/veraison/ear v1.0.1 // indirect
 	github.com/veraison/swid v0.0.1-beta.6 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
@@ -95,8 +92,8 @@ require (
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
 	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
-	google.golang.org/genproto v0.0.0-20220624142145-8cd45d7dbd1f // indirect
-	google.golang.org/grpc v1.49.0 // indirect
+	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f // indirect
+	google.golang.org/grpc v1.53.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
