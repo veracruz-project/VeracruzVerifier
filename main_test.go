@@ -306,6 +306,97 @@ func Test_PSA(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
+func Test_SEV(t *testing.T) {
+	if err := manageCertAndKey(); err != nil {
+		t.Fatalf("manageCertAndKey failed:%v\n", err)
+	}
+	// start the vts service
+	vtsCtx, cancel_vts_service := context.WithCancel(context.Background())
+	defer cancel_vts_service()
+	go startAndMonitorProcess(vtsCtx, "./vts", "vts")
+	// start the provisioning service
+	provisioningCtx, cancel_provisioning_service := context.WithCancel(context.Background())
+	defer cancel_provisioning_service()
+
+	if err := startProvisioningService(provisioningCtx); err != nil {
+		t.Fatalf("Failed to start the provisioning service:%v", err)
+	}
+
+	proxyHandler := createTestProxyHandler()
+
+	signingKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed to generate key:%v", err)
+	}
+	// provision the fake PSA credentials to the services
+	if err := provision_psa_corim(signingKey); err != nil {
+		t.Fatalf("Failed to provision PSA credentials:%v\n", err)
+	}
+
+	router, err := createRouter(proxyHandler)
+	assert.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/proxy/v1/Start", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusCreated, w.Code)
+	header := w.Header()
+	assert.Equal(t, header.Get("Content-Type"), string("application/vnd.veraison.challenge-response-session+json"))
+	// Make sure there is a reeturned Location in the header
+	location := header.Get("Location")
+	// Make sure the location decodes correctly to a UUID
+	session_id, err := uuid.FromString(location)
+	if err != nil {
+		t.Fatalf("Faileed to convert location into UUID:%v\n", err)
+	}
+	assert.NoError(t, err)
+	// Make sure the nonce received in the Body is the right length?
+	nonceBytes := w.Body.Bytes()
+
+	csr, err := generateCSR()
+	if err != nil {
+		t.Fatalf("Failed to generate CSR:%v\n", err)
+	}
+	h := sha256.New()
+	h.Write(csr)
+	csrHash := h.Sum(nil)
+
+	sevReport, err := createSEVReport(&nonceBytes, &csrHash, signingKey)
+	if err != nil {
+		t.Fatalf("createSEVReport failed:%v", err)
+	}
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	tokenField, err := writer.CreateFormField("token")
+	if err != nil {
+		t.Fatalf("Failed to create token field:%v\n", err)
+	}
+	encodedReport := base64.StdEncoding.EncodeToString(sevReport)
+	_, err = io.Copy(tokenField, strings.NewReader(encodedReport))
+	if err != nil {
+		t.Fatalf("Failed to copy token base64:%v\n", err)
+	}
+	csrField, err := writer.CreateFormField("csr")
+	if err != nil {
+		t.Fatalf("Failed to create CSR field:%v\n", err)
+	}
+	encodedCSR := base64.StdEncoding.EncodeToString(csr)
+	_, err = io.Copy(csrField, strings.NewReader(encodedCSR))
+	if err != nil {
+		t.Fatalf("Failed to copy CSR field:%v\n", err)
+	}
+	writer.Close()
+
+	sev_url := fmt.Sprintf("/proxy/v1/SEV/%v", session_id)
+	sevReq := httptest.NewRequest(http.MethodPost, sev_url, bytes.NewReader(body.Bytes()))
+	sevReq.Header.Set("Content-Type", writer.FormDataContentType())
+
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, sevReq)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
 func manageCertAndKey() error {
 	keyFilename := "TestCaKey.pem"
 	certFilename := "TestCaCert.pem"
@@ -408,6 +499,11 @@ func createPSAToken(nonce *[]byte, csrHash *[]byte, signingKey *ecdsa.PrivateKey
 	}
 	return cwt, nil
 }
+
+func createSEVReport(nonce *[]byte, csrHash *[]byte, signingKey *ecdsa.PrivateKey) ([]byte, error) {
+	return nil, fmt.Errorf("createSEVReport not yet implemented")
+}
+
 func createTestProxyHandler() *ProxyHandler {
 	vtsAddress := "127.0.0.1:50051"
 

@@ -104,8 +104,9 @@ func extractIdTokenCsr(c *gin.Context) (*uuid.UUID, []byte, []byte, error) {
 	}
 	doc, ok := form.Value["token"]
 	if !ok {
-		return nil, nil, nil, fmt.Errorf("extractIdDocCsr: \"doc\" entry not found in form")
+		return nil, nil, nil, fmt.Errorf("extractIdDocCsr: \"token\" entry not found in form")
 	}
+	fmt.Printf("extractIdTokenCsr extracted doc:%v\n", doc)
 	doc_bytes, err := base64.StdEncoding.DecodeString(doc[0])
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("extractIdDocCsr: Decode of doc failed:%v", err)
@@ -240,11 +241,32 @@ func parseAttestationResultNitro(ctx *proto.AppraisalContext) (*[]byte, *[]byte,
 	return &nonce, &runtime_manager_hash, &csr_hash, nil
 }
 
+func parseAttestationResultSev(ctx *proto.AppraisalContext) (*[]byte, *[]byte, *[]byte, error) {
+	evidenceMap := (*ctx.Evidence.Evidence).AsMap()
+	fmt.Printf("parseAttestationResultSev evidenceMap:%v\n", evidenceMap)
+	host_data := evidenceMap["host_data"]
+	runtime_manager_hash, err:= base64.StdEncoding.DecodeString(evidenceMap["measurement"].(string))
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("parseAttestationResutlSev failed to decode %v as base64.", evidenceMap["measurement"].(string))
+	}
+	csr_hash, err := base64.StdEncoding.DecodeString(evidenceMap["report_data"].(string))
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("parseAttestationResutlSev failed to decode %v as base64.", evidenceMap["report_data"].(string))
+	}
+	csr_hash = csr_hash[0:32] // The field is 64 bytes, but we only need 32
+	fmt.Printf("parseAttestationResultSev host_data:%v\n", host_data)
+	fmt.Printf("parseAttestationResultSev runtime_manager_hash:%v\n", runtime_manager_hash)
+	fmt.Printf("parseAttestationResultSev csr_hash:%v\n", csr_hash)
+	return nil, &runtime_manager_hash, &csr_hash, nil
+	//return nil, nil, nil, fmt.Errorf("parseAttestationResultSev: Not implemented")
+}
+
 type PlatformType uint8
 
 const (
 	PSAPlatform   PlatformType = 0
 	NitroPlatform              = 1
+	SEVPlatform   			   = 2
 )
 
 func (o *ProxyHandler) genericRouter(c *gin.Context, platform PlatformType) {
@@ -261,6 +283,8 @@ func (o *ProxyHandler) genericRouter(c *gin.Context, platform PlatformType) {
 		mediaType = "application/psa-attestation-token"
 	} else if platform == NitroPlatform {
 		mediaType = "application/aws-nitro-document"
+	} else if platform == SEVPlatform {
+		mediaType = "application/amd-sev-snp-report"
 	} else {
 		reportProblem(c,
 			http.StatusInternalServerError,
@@ -305,6 +329,14 @@ func (o *ProxyHandler) genericRouter(c *gin.Context, platform PlatformType) {
 				fmt.Sprintf("genericRouter: Call to parseAttestationResultNitro failed:%v", err))
 			return
 		}
+	} else if platform == SEVPlatform {
+		nonce, runtime_manager_hash, received_csr_hash, err = parseAttestationResultSev(appraisalCtx)
+		if err != nil {
+			reportProblem(c,
+				http.StatusInternalServerError,
+				fmt.Sprintf("genericRouter: Call to parseAttestationResultSev failed:%v", err))
+			return
+		}
 	} else {
 		reportProblem(c,
 			http.StatusInternalServerError,
@@ -319,7 +351,7 @@ func (o *ProxyHandler) genericRouter(c *gin.Context, platform PlatformType) {
 			fmt.Sprintf("genericRouter: Unable to find session for id:%v, err:%v", id, err))
 		return
 	}
-	if !bytes.Equal(session.Nonce, *nonce) {
+	if nonce!= nil && !bytes.Equal(session.Nonce, *nonce) {
 		reportProblem(c,
 			http.StatusInternalServerError,
 			fmt.Sprintf("genericRouter: Received nonce:%v did not match stored challenge:%v", nonce, session.Nonce))
@@ -373,6 +405,11 @@ func (o *ProxyHandler) PsaRouter(c *gin.Context) {
 
 func (o *ProxyHandler) NitroRouter(c *gin.Context) {
 	o.genericRouter(c, NitroPlatform)
+	return
+}
+
+func (o *ProxyHandler) SevRouter(c *gin.Context) {
+	o.genericRouter(c, SEVPlatform)
 	return
 }
 
@@ -463,7 +500,8 @@ func createRouter(proxyHandler *ProxyHandler) (*gin.Engine, error) {
 	router.Group("/proxy/v1").
 		POST("/Start", proxyHandler.Start).
 		POST("PSA/:id", proxyHandler.PsaRouter).
-		POST("Nitro/:id", proxyHandler.NitroRouter)
+		POST("Nitro/:id", proxyHandler.NitroRouter).
+		POST("SEV/:id", proxyHandler.SevRouter)
 	return router, nil
 }
 

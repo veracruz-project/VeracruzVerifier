@@ -2,7 +2,7 @@ module github.com/veracruz-project/proxy_attestation_server
 
 go 1.18
 
-replace github.com/veraison/services => github.com/dreemkiller/services v0.0.0-20230315160325-0fc6aef5227e
+replace github.com/veraison/services => github.com/dreemkiller/services v0.0.0-20230822211553-188be8cfab61
 
 require (
 	github.com/gin-gonic/gin v1.8.1
@@ -16,7 +16,7 @@ require (
 	github.com/veraison/eat v0.0.0-20220117140849-ddaf59d69f53
 	github.com/veraison/go-cose v1.0.0-rc.1
 	github.com/veraison/psatoken v1.1.0
-	github.com/veraison/services v0.0.0-00010101000000-000000000000
+	github.com/veraison/services v0.0.0-20230821141126-d37d6ec365fe
 )
 
 require (
@@ -36,7 +36,9 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/goccy/go-json v0.9.11 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/google/go-sev-guest v0.7.0 // indirect
 	github.com/google/go-tpm v0.3.3 // indirect
+	github.com/google/logger v1.1.1 // indirect
 	github.com/hashicorp/go-hclog v1.2.0 // indirect
 	github.com/hashicorp/go-plugin v1.4.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -60,6 +62,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/oklog/run v1.0.0 // indirect
 	github.com/open-policy-agent/opa v0.43.1 // indirect
+	github.com/pborman/uuid v1.2.0 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.5 // indirect
 	github.com/petar-dambovaliev/aho-corasick v0.0.0-20211021192214-5ab2d9280aa9 // indirect
